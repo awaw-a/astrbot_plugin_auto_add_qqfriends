@@ -3,13 +3,13 @@
     "description": "启用插件",
     "type": "bool",
     "default": true,
-    "hint": "关闭后不处理好友申请、不缓存群聊上下文，也不注入私聊上下文。"
+    "hint": "总开关。关闭后不处理好友申请、不缓存群聊上下文，也不注入私聊上下文。"
   },
   "auto_approve_enabled": {
     "description": "启用真实自动同意",
     "type": "bool",
     "default": false,
-    "hint": "默认关闭。只有本地低风险规则全部通过时才会调用 OneBot 的 set_friend_add_request。"
+    "hint": "默认关闭。开启后才会真正调用 OneBot 的 set_friend_add_request 同意好友申请。"
   },
   "dry_run": {
     "description": "演练模式",
@@ -23,83 +23,23 @@
     "default": false,
     "hint": "开启后输出更多诊断信息，但仍不会输出完整 flag 或完整聊天上下文。"
   },
+  "accept_non_group_requests": {
+    "description": "接受非群聊来源好友申请",
+    "type": "bool",
+    "default": false,
+    "hint": "默认关闭。关闭时无法判断来源群的好友申请会等待人工处理；开启后非群聊来源申请也会按白名单/黑名单规则处理（无来源群时仅受总开关、auto_approve、dry_run 约束）。"
+  },
   "allowed_group_ids": {
     "description": "允许来源群白名单",
     "type": "list",
     "default": [],
-    "hint": "填写可信群号。QQ 号和群号可填数字或字符串，插件内部统一按字符串处理。"
+    "hint": "填写可信群号。QQ 号和群号可填数字或字符串，插件内部统一按字符串处理。留空表示不启用群白名单限制。"
   },
   "blocked_group_ids": {
     "description": "群黑名单",
     "type": "list",
     "default": [],
     "hint": "来自这些群的申请不会自动同意，优先级高于白名单。"
-  },
-  "allowed_user_ids": {
-    "description": "QQ 用户白名单",
-    "type": "list",
-    "default": [],
-    "hint": "显式信任的 QQ 号。默认仍不能绕过群白名单，除非打开单独的绕过开关。"
-  },
-  "blocked_user_ids": {
-    "description": "QQ 用户黑名单",
-    "type": "list",
-    "default": [],
-    "hint": "这些 QQ 号的申请会被标记为忽略，不会自动拒绝。"
-  },
-  "only_allow_whitelisted_groups": {
-    "description": "仅允许白名单群来源",
-    "type": "bool",
-    "default": true,
-    "hint": "默认开启。无法确认来源群或来源群不在 allowed_group_ids 时，不会自动同意。"
-  },
-  "user_whitelist_bypass_group_rule": {
-    "description": "用户白名单绕过群规则",
-    "type": "bool",
-    "default": false,
-    "hint": "默认关闭。开启后 allowed_user_ids 中的用户可绕过群白名单要求，但仍受黑名单、关键词、冷却和限流限制。"
-  },
-  "require_current_group_membership": {
-    "description": "要求确认仍在来源群",
-    "type": "bool",
-    "default": true,
-    "hint": "开启后会通过 get_group_member_info 确认申请人仍是来源群成员；接口不可用时不自动同意。"
-  },
-  "require_nonempty_comment": {
-    "description": "要求验证消息非空",
-    "type": "bool",
-    "default": false,
-    "hint": "开启后空验证消息会等待人工处理。"
-  },
-  "blocked_comment_keywords": {
-    "description": "验证消息关键词黑名单",
-    "type": "list",
-    "default": [],
-    "hint": "验证消息包含这些关键词时等待人工处理，不自动拒绝。"
-  },
-  "startup_grace_seconds": {
-    "description": "启动保护时间（秒）",
-    "type": "int",
-    "default": 120,
-    "hint": "插件启动后的这段时间内不自动同意，避免热重载或初次启动时误处理。"
-  },
-  "per_user_cooldown_seconds": {
-    "description": "单用户申请冷却（秒）",
-    "type": "int",
-    "default": 3600,
-    "hint": "同一 QQ 在冷却时间内重复申请不会自动同意。"
-  },
-  "global_approvals_per_hour": {
-    "description": "全局每小时自动同意上限",
-    "type": "int",
-    "default": 20,
-    "hint": "最近一小时真实自动同意数量达到上限后，后续申请等待人工处理；0 表示不限制。"
-  },
-  "per_group_approvals_per_hour": {
-    "description": "单群每小时自动同意上限",
-    "type": "int",
-    "default": 5,
-    "hint": "同一来源群最近一小时真实自动同意数量达到上限后，后续申请等待人工处理；0 表示不限制。"
   },
   "api_retry_count": {
     "description": "OneBot API 失败重试次数",

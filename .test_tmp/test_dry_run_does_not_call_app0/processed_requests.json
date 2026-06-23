@@ -1,0 +1,18 @@
+{
+  "records": [
+    {
+      "action": "dry_run_approve",
+      "comment": "hi",
+      "failure_reason": "",
+      "flag_digest": "sha256:8ae9360c8f68cbb525",
+      "result": "dry_run",
+      "risk_level": "low",
+      "source_confidence": 0.95,
+      "source_group_id": "10001",
+      "source_method": "explicit_event_field",
+      "timestamp": 1782232690.467482,
+      "user_id": "42"
+    }
+  ],
+  "schema_version": 1
+}

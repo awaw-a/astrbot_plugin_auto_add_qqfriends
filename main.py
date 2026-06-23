@@ -33,7 +33,7 @@ try:  # pragma: no cover - AstrBot package import path
     )
     from .services.context_cache import ContextCache, ContextCacheConfig
     from .services.onebot_bridge import OneBotBridge, extract_raw_event
-    from .services.risk_evaluator import RateLimitState, RiskConfig, RiskEvaluator
+    from .services.risk_evaluator import RiskConfig, RiskEvaluator
     from .services.source_detector import SourceDetector
     from .services.storage import PluginDataStore
 except ImportError:  # pragma: no cover - local repo execution path
@@ -53,7 +53,7 @@ except ImportError:  # pragma: no cover - local repo execution path
     )
     from services.context_cache import ContextCache, ContextCacheConfig
     from services.onebot_bridge import OneBotBridge, extract_raw_event
-    from services.risk_evaluator import RateLimitState, RiskConfig, RiskEvaluator
+    from services.risk_evaluator import RiskConfig, RiskEvaluator
     from services.source_detector import SourceDetector
     from services.storage import PluginDataStore
 
@@ -67,19 +67,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "auto_approve_enabled": False,
     "dry_run": True,
     "debug_logging": False,
+    "accept_non_group_requests": False,
     "allowed_group_ids": [],
     "blocked_group_ids": [],
-    "allowed_user_ids": [],
-    "blocked_user_ids": [],
-    "only_allow_whitelisted_groups": True,
-    "user_whitelist_bypass_group_rule": False,
-    "require_current_group_membership": True,
-    "require_nonempty_comment": False,
-    "blocked_comment_keywords": [],
-    "startup_grace_seconds": 120,
-    "per_user_cooldown_seconds": 3600,
-    "global_approvals_per_hour": 20,
-    "per_group_approvals_per_hour": 5,
     "api_retry_count": 1,
     "friend_remark_template": "",
     "remark_max_length": 20,
@@ -124,12 +114,7 @@ class AutoAddQQFriendsPlugin(Star):
         self.context_cache = ContextCache(
             ContextCacheConfig.from_mapping(self.config),
         )
-        self.rate_limits = RateLimitState()
-        self.risk = RiskEvaluator(
-            RiskConfig.from_mapping(self.config),
-            self.rate_limits,
-            started_at=self.started_at,
-        )
+        self.risk = RiskEvaluator(RiskConfig.from_mapping(self.config))
         self.processed_records: list[ProcessedRequestRecord] = []
         self.processed_digests: set[str] = set()
         self.pending_records: list[PendingRequestRecord] = []
@@ -166,10 +151,7 @@ class AutoAddQQFriendsPlugin(Star):
         if not self.config["enabled"]:
             return
         raw = extract_raw_event(event)
-        if (
-            raw.get("post_type") == "request"
-            and raw.get("request_type") == "friend"
-        ):
+        if raw.get("post_type") == "request" and raw.get("request_type") == "friend":
             await self._handle_friend_request(event, raw)
             return
         if raw.get("post_type") == "message" and raw.get("message_type") == "group":
@@ -193,7 +175,6 @@ class AutoAddQQFriendsPlugin(Star):
     async def status(self, event: AstrMessageEvent):
         """显示插件运行状态。"""
         stats = await self.context_cache.stats()
-        real_recent = len(self.rate_limits.global_approvals)
         task_status = (
             "running"
             if self._background_task and not self._background_task.done()
@@ -207,7 +188,6 @@ class AutoAddQQFriendsPlugin(Star):
             f"缓存群数={stats['groups']} 消息数={stats['messages']}\n"
             f"用户来源关联={len(self.associations)} "
             f"已处理请求={len(self.processed_records)}\n"
-            f"最近一小时真实同意={real_recent}\n"
             f"后台任务={task_status}"
         )
         yield event.plain_result(text)
@@ -262,7 +242,7 @@ class AutoAddQQFriendsPlugin(Star):
             request,
             bridge=bridge,
             context_cache=self.context_cache,
-            require_membership=self.config["require_current_group_membership"],
+            require_membership=False,
         )
         text = (
             f"来源分析：QQ {mask_id(qq)}\n"
@@ -279,7 +259,9 @@ class AutoAddQQFriendsPlugin(Star):
         """清理指定群上下文缓存。"""
         removed = await self.context_cache.clear_group(group_id)
         await self._save_state()
-        yield event.plain_result(f"已清理群 {normalize_id(group_id)} 上下文 {removed} 条。")
+        yield event.plain_result(
+            f"已清理群 {normalize_id(group_id)} 上下文 {removed} 条。"
+        )
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @autoqq.command("clear_association")
@@ -305,7 +287,9 @@ class AutoAddQQFriendsPlugin(Star):
         self, event: AstrMessageEvent, raw: dict[str, Any]
     ) -> None:
         request = FriendRequest.from_raw(raw)
-        digest = request.safe_flag_digest or f"noflag:{request.user_id}:{int(request.time)}"
+        digest = (
+            request.safe_flag_digest or f"noflag:{request.user_id}:{int(request.time)}"
+        )
         async with self._get_request_lock():
             if digest in self.processed_digests or digest in self._inflight_flags:
                 self._debug("skip duplicate friend request %s", digest)
@@ -322,9 +306,9 @@ class AutoAddQQFriendsPlugin(Star):
                 request,
                 bridge=bridge,
                 context_cache=self.context_cache,
-                require_membership=self.config["require_current_group_membership"],
+                require_membership=False,
             )
-            decision = self.risk.evaluate(request, source, now_ts())
+            decision = self.risk.evaluate(request, source)
             result = "wait_manual"
             failure_reason = ""
 
@@ -333,7 +317,9 @@ class AutoAddQQFriendsPlugin(Star):
                 decision.action = "wait_manual"
                 decision.risk_level = "unknown"
                 decision.reason_codes.append("missing_flag")
-                decision.human_readable_reason = "好友申请事件缺少 flag，无法调用同意接口"
+                decision.human_readable_reason = (
+                    "好友申请事件缺少 flag，无法调用同意接口"
+                )
 
             if decision.approved and decision.action == "approve":
                 if not bridge:
@@ -348,15 +334,11 @@ class AutoAddQQFriendsPlugin(Star):
                             retry_count=int(self.config["api_retry_count"]),
                         )
                         result = "approved"
-                        self.rate_limits.record_approval(
-                            request.user_id, source.group_id, now_ts()
-                        )
                         await self._save_association_after_approval(request, source)
                     except Exception as exc:
                         result = "failed"
                         failure_reason = str(exc)
             else:
-                self.rate_limits.record_attempt(request.user_id, now_ts())
                 if decision.action == "dry_run_approve":
                     result = "dry_run"
                 elif decision.action == "ignored":
@@ -411,7 +393,9 @@ class AutoAddQQFriendsPlugin(Star):
             text=text,
             timestamp=float(raw.get("time") or now_ts()),
             is_bot=event.get_sender_id() == event.get_self_id(),
-            message_id=str(raw.get("message_id") or getattr(event.message_obj, "message_id", "")),
+            message_id=str(
+                raw.get("message_id") or getattr(event.message_obj, "message_id", "")
+            ),
         )
         await self.context_cache.add_message(record)
 
@@ -567,7 +551,9 @@ class AutoAddQQFriendsPlugin(Star):
         result: str,
         failure_reason: str = "",
     ) -> None:
-        digest = request.safe_flag_digest or f"noflag:{request.user_id}:{int(request.time)}"
+        digest = (
+            request.safe_flag_digest or f"noflag:{request.user_id}:{int(request.time)}"
+        )
         record = ProcessedRequestRecord(
             user_id=request.user_id,
             flag_digest=digest,
@@ -662,13 +648,6 @@ class AutoAddQQFriendsPlugin(Star):
         context_data = await self.store.context_cache.load({"groups": {}})
         await self.context_cache.load_json(context_data)
 
-        rate_data = await self.store.rate_limits.load({})
-        self.rate_limits = RateLimitState.from_mapping(rate_data)
-        self.risk = RiskEvaluator(
-            RiskConfig.from_mapping(self.config),
-            self.rate_limits,
-            started_at=self.started_at,
-        )
         await self._cleanup_expired()
 
     async def _save_state(self) -> None:
@@ -680,7 +659,6 @@ class AutoAddQQFriendsPlugin(Star):
         )
         await self._save_associations()
         await self.store.context_cache.save(await self.context_cache.to_json())
-        await self.store.rate_limits.save(self.rate_limits.to_dict())
 
     async def _save_associations(self) -> None:
         await self.store.associations.save(
@@ -697,7 +675,6 @@ class AutoAddQQFriendsPlugin(Star):
             for key, item in self.associations.items()
             if not item.is_expired(now)
         }
-        self.rate_limits.cleanup(now)
         await self.context_cache.cleanup_expired(now)
 
     async def _background_loop(self) -> None:
@@ -720,8 +697,6 @@ class AutoAddQQFriendsPlugin(Star):
                     merged[key] = config.get(key)
         merged["allowed_group_ids"] = normalize_id_list(merged["allowed_group_ids"])
         merged["blocked_group_ids"] = normalize_id_list(merged["blocked_group_ids"])
-        merged["allowed_user_ids"] = normalize_id_list(merged["allowed_user_ids"])
-        merged["blocked_user_ids"] = normalize_id_list(merged["blocked_user_ids"])
         return merged
 
     def _get_request_lock(self) -> asyncio.Lock:

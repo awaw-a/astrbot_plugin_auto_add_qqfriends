@@ -70,9 +70,10 @@ class PluginDataStore:
         self.processed_requests = AtomicJSONStorage(
             self.data_dir / "processed_requests.json"
         )
-        self.pending_requests = AtomicJSONStorage(self.data_dir / "pending_requests.json")
+        self.pending_requests = AtomicJSONStorage(
+            self.data_dir / "pending_requests.json"
+        )
         self.associations = AtomicJSONStorage(
             self.data_dir / "user_group_associations.json"
         )
         self.context_cache = AtomicJSONStorage(self.data_dir / "context_cache.json")
-        self.rate_limits = AtomicJSONStorage(self.data_dir / "rate_limits.json")

@@ -1,0 +1,18 @@
+{
+  "records": [
+    {
+      "action": "approve",
+      "comment": "hi",
+      "failure_reason": "",
+      "flag_digest": "sha256:87405d3564c1221f8d",
+      "result": "approved",
+      "risk_level": "low",
+      "source_confidence": 0.95,
+      "source_group_id": "10001",
+      "source_method": "explicit_event_field",
+      "timestamp": 1782232690.478411,
+      "user_id": "42"
+    }
+  ],
+  "schema_version": 1
+}

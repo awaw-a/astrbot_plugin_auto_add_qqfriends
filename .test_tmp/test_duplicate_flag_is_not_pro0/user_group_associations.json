@@ -1,0 +1,14 @@
+{
+  "items": {
+    "42": {
+      "approved_at": 1782232690.4773402,
+      "confidence": 0.95,
+      "detection_method": "explicit_event_field",
+      "expires_at": 1782319090.4773402,
+      "first_injected_at": null,
+      "group_id": "10001",
+      "user_id": "42"
+    }
+  },
+  "schema_version": 1
+}

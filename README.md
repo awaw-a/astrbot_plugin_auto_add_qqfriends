@@ -30,20 +30,18 @@ set_friend_add_request(flag=..., approve=true, remark=...)
 
 如果当前 AstrBot/适配器版本没有把 request 事件送入插件流水线，插件无法收到好友申请；此时不会伪装支持，需要升级 AstrBot 或在日志中排查 raw request 是否进入。
 
-## 低风险含义
+## 判定规则
 
-这里的“低风险”不是 QQ 官方风控等级，只是插件本地规则判断。默认无法确认时不会自动同意，也不会自动拒绝，而是记录为 pending，等待人工处理。
+插件的好友申请判定采用简单规则，按以下顺序判断：
 
-主要规则包括：
+1. **插件总开关** `enabled`：关闭则忽略所有申请。
+2. **群黑名单** `blocked_group_ids`：来源群在黑名单中则忽略（不自动同意，也不自动拒绝）。
+3. **群白名单** `allowed_group_ids`：留空表示不启用白名单限制（允许任意群）；填写后，来源群不在白名单中则等待人工处理。
+4. **非群聊来源**：如果无法判断来源群，默认等待人工处理；开启 `accept_non_group_requests` 后则按上述规则放行（无来源群时仅受总开关、`auto_approve_enabled`、`dry_run` 约束）。
+5. **自动同意开关** `auto_approve_enabled`：关闭时即使规则通过也只记录为等待人工。
+6. **演练模式** `dry_run`：开启时规则通过只标记为 `dry_run`，不真实调用同意接口。
 
-- 插件总开关、真实自动同意开关、dry_run。
-- 来源群白名单、群黑名单、QQ 黑白名单。
-- 默认仅允许白名单群来源。
-- 可通过 `get_group_member_info` 确认申请人仍在来源群。
-- 验证消息非空、关键词黑名单。
-- 单用户冷却、全局每小时上限、单群每小时上限。
-- 启动保护时间。
-- OneBot API 失败重试限制和同 flag 去重。
+只有 `enabled=true`、`auto_approve_enabled=true`、`dry_run=false`，并且通过上述白名单/黑名单规则时，才会真实调用 OneBot 同意接口。
 
 ## 来源群判断
 
@@ -52,10 +50,10 @@ set_friend_add_request(flag=..., approve=true, remark=...)
 1. 原始 request 事件中的明确群字段，如 `group_id`、`source_group_id`、`from_group_id`。
 2. NapCat/OneBot 扩展或嵌套字段。
 3. 结构明确的验证文本，如 `群号: 123456`。
-4. 在允许群中调用 `get_group_member_info` 验证申请人是否为成员。
+4. 在允许群中调用 `get_group_member_info` 验证申请人是否为成员（仅用于来源检测辅助，不作为强制风控条件）。
 5. 使用近期群聊缓存辅助匹配。
 
-如果候选群不唯一，结果会标记为 `ambiguous`，不会自动同意。
+如果候选群不唯一，结果会标记为 `ambiguous`，不会自动同意。来源检测默认不再强制要求成员关系确认（`require_membership=False`）。
 
 ## 群聊上下文
 
@@ -79,7 +77,6 @@ data/plugin_data/astrbot_plugin_auto_add_qqfriends/
 - `pending_requests.json`
 - `user_group_associations.json`
 - `context_cache.json`
-- `rate_limits.json`
 
 写入采用临时文件加 `os.replace` 原子替换。JSON 损坏时会改名为 `.corrupt.<timestamp>` 后重新初始化。插件不保存完整 OneBot access token，也不保存完整好友申请 `flag`；记录中只保留哈希摘要。
 
@@ -96,11 +93,10 @@ data/plugins/astrbot_plugin_auto_add_qqfriends
 ## 推荐首次启用步骤
 
 1. 保持默认 `dry_run=true` 和 `auto_approve_enabled=false`。
-2. 在 `allowed_group_ids` 填入可信来源群。
-3. 保持 `only_allow_whitelisted_groups=true`。
-4. 观察 AstrBot 日志和 `/autoqq pending`、`/autoqq recent`。
-5. 确认来源判断和 pending 结果符合预期后，再设置 `auto_approve_enabled=true`。
-6. 最后确认无误后再关闭 `dry_run`。
+2. 在 `allowed_group_ids` 填入可信来源群（留空表示允许任意群）。
+3. 观察 AstrBot 日志和 `/autoqq pending`、`/autoqq recent`。
+4. 确认来源判断和 pending 结果符合预期后，再设置 `auto_approve_enabled=true`。
+5. 最后确认无误后再关闭 `dry_run`。
 
 ## 管理员指令
 
@@ -120,16 +116,19 @@ data/plugins/astrbot_plugin_auto_add_qqfriends
 
 ## 重要配置
 
+**好友申请判定相关：**
+
 - `enabled`：总开关。
 - `auto_approve_enabled`：是否允许真实自动同意，默认关闭。
 - `dry_run`：演练模式，默认开启。
-- `allowed_group_ids`：可信来源群。
-- `blocked_group_ids`、`blocked_user_ids`：黑名单，优先级最高。
-- `allowed_user_ids`：用户白名单。
-- `user_whitelist_bypass_group_rule`：用户白名单是否绕过群白名单，默认不绕过。
-- `require_current_group_membership`：是否要求成员关系 API 确认。
-- `startup_grace_seconds`：启动保护时间。
-- `global_approvals_per_hour`、`per_group_approvals_per_hour`：限流。
+- `accept_non_group_requests`：是否接受无法判断来源群的好友申请，默认关闭。
+- `allowed_group_ids`：群白名单，留空表示允许任意群。
+- `blocked_group_ids`：群黑名单，优先级高于白名单。
+
+**其他：**
+
+- `api_retry_count`：OneBot API 失败重试次数。
+- `friend_remark_template`、`remark_max_length`：好友备注。
 - `context_cache_enabled`、`context_injection_enabled`：上下文缓存和注入开关。
 - `inject_only_first_private_message`：默认同一来源关联只注入一次。
 - `minimum_source_confidence`：来源置信度低于该值时不自动同意、不注入。
@@ -138,7 +137,7 @@ data/plugins/astrbot_plugin_auto_add_qqfriends
 
 **为什么没有自动同意？**
 
-默认不会自动同意。需要同时满足 `enabled=true`、`auto_approve_enabled=true`、`dry_run=false`，并且通过所有本地低风险规则。
+默认不会自动同意。需要同时满足 `enabled=true`、`auto_approve_enabled=true`、`dry_run=false`，并且来源群通过白名单/黑名单规则。
 
 **为什么 request 事件没出现？**
 

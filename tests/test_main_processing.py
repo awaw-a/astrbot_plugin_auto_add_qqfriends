@@ -87,7 +87,7 @@ def _install_astrbot_stubs(tmp_path):
     star_mod.Context = object
     star_mod.Star = FakeStar
     star_mod.StarTools = FakeStarTools
-    star_mod.register = lambda *args, **kwargs: (lambda cls: cls)
+    star_mod.register = lambda *args, **kwargs: lambda cls: cls
     message_mod = types.ModuleType("astrbot.core.agent.message")
     message_mod.TextPart = FakeTextPart
     sys.modules["astrbot"] = types.ModuleType("astrbot")
@@ -131,9 +131,6 @@ def _config(dry_run):
         "auto_approve_enabled": True,
         "dry_run": dry_run,
         "allowed_group_ids": ["10001"],
-        "startup_grace_seconds": 0,
-        "per_user_cooldown_seconds": 0,
-        "require_current_group_membership": True,
     }
 
 
@@ -156,7 +153,6 @@ def test_dry_run_does_not_call_approve_api(tmp_path):
     bot = FakeBot()
     asyncio.run(plugin._handle_friend_request(FakeEvent(bot), _raw()))
     actions = [name for name, _ in bot.actions]
-    assert "get_group_member_info" in actions
     assert "set_friend_add_request" not in actions
     assert plugin.processed_records[-1].result == "dry_run"
 
@@ -172,4 +168,3 @@ def test_duplicate_flag_is_not_processed_twice(tmp_path):
         name for name, _ in bot.actions if name == "set_friend_add_request"
     ]
     assert approve_calls == ["set_friend_add_request"]
-

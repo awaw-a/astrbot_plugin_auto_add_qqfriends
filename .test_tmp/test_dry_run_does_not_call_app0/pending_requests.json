@@ -1,0 +1,16 @@
+{
+  "records": [
+    {
+      "comment": "hi",
+      "created_at": 1782232690.4674892,
+      "expires_at": 1782319090.4674892,
+      "flag_digest": "sha256:8ae9360c8f68cbb525",
+      "reason": "规则判定通过；dry_run 模式不会真实同意",
+      "risk_level": "low",
+      "source_group_id": "10001",
+      "source_method": "explicit_event_field",
+      "user_id": "42"
+    }
+  ],
+  "schema_version": 1
+}
