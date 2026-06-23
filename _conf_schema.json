@@ -1,0 +1,224 @@
+{
+  "enabled": {
+    "description": "启用插件",
+    "type": "bool",
+    "default": true,
+    "hint": "关闭后不处理好友申请、不缓存群聊上下文，也不注入私聊上下文。"
+  },
+  "auto_approve_enabled": {
+    "description": "启用真实自动同意",
+    "type": "bool",
+    "default": false,
+    "hint": "默认关闭。只有本地低风险规则全部通过时才会调用 OneBot 的 set_friend_add_request。"
+  },
+  "dry_run": {
+    "description": "演练模式",
+    "type": "bool",
+    "default": true,
+    "hint": "默认开启。只判断和记录，不真正同意好友申请；首次启用强烈建议保持开启。"
+  },
+  "debug_logging": {
+    "description": "调试日志",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后输出更多诊断信息，但仍不会输出完整 flag 或完整聊天上下文。"
+  },
+  "allowed_group_ids": {
+    "description": "允许来源群白名单",
+    "type": "list",
+    "default": [],
+    "hint": "填写可信群号。QQ 号和群号可填数字或字符串，插件内部统一按字符串处理。"
+  },
+  "blocked_group_ids": {
+    "description": "群黑名单",
+    "type": "list",
+    "default": [],
+    "hint": "来自这些群的申请不会自动同意，优先级高于白名单。"
+  },
+  "allowed_user_ids": {
+    "description": "QQ 用户白名单",
+    "type": "list",
+    "default": [],
+    "hint": "显式信任的 QQ 号。默认仍不能绕过群白名单，除非打开单独的绕过开关。"
+  },
+  "blocked_user_ids": {
+    "description": "QQ 用户黑名单",
+    "type": "list",
+    "default": [],
+    "hint": "这些 QQ 号的申请会被标记为忽略，不会自动拒绝。"
+  },
+  "only_allow_whitelisted_groups": {
+    "description": "仅允许白名单群来源",
+    "type": "bool",
+    "default": true,
+    "hint": "默认开启。无法确认来源群或来源群不在 allowed_group_ids 时，不会自动同意。"
+  },
+  "user_whitelist_bypass_group_rule": {
+    "description": "用户白名单绕过群规则",
+    "type": "bool",
+    "default": false,
+    "hint": "默认关闭。开启后 allowed_user_ids 中的用户可绕过群白名单要求，但仍受黑名单、关键词、冷却和限流限制。"
+  },
+  "require_current_group_membership": {
+    "description": "要求确认仍在来源群",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后会通过 get_group_member_info 确认申请人仍是来源群成员；接口不可用时不自动同意。"
+  },
+  "require_nonempty_comment": {
+    "description": "要求验证消息非空",
+    "type": "bool",
+    "default": false,
+    "hint": "开启后空验证消息会等待人工处理。"
+  },
+  "blocked_comment_keywords": {
+    "description": "验证消息关键词黑名单",
+    "type": "list",
+    "default": [],
+    "hint": "验证消息包含这些关键词时等待人工处理，不自动拒绝。"
+  },
+  "startup_grace_seconds": {
+    "description": "启动保护时间（秒）",
+    "type": "int",
+    "default": 120,
+    "hint": "插件启动后的这段时间内不自动同意，避免热重载或初次启动时误处理。"
+  },
+  "per_user_cooldown_seconds": {
+    "description": "单用户申请冷却（秒）",
+    "type": "int",
+    "default": 3600,
+    "hint": "同一 QQ 在冷却时间内重复申请不会自动同意。"
+  },
+  "global_approvals_per_hour": {
+    "description": "全局每小时自动同意上限",
+    "type": "int",
+    "default": 20,
+    "hint": "最近一小时真实自动同意数量达到上限后，后续申请等待人工处理；0 表示不限制。"
+  },
+  "per_group_approvals_per_hour": {
+    "description": "单群每小时自动同意上限",
+    "type": "int",
+    "default": 5,
+    "hint": "同一来源群最近一小时真实自动同意数量达到上限后，后续申请等待人工处理；0 表示不限制。"
+  },
+  "api_retry_count": {
+    "description": "OneBot API 失败重试次数",
+    "type": "int",
+    "default": 1,
+    "hint": "调用 set_friend_add_request 失败时的额外重试次数。插件会记录失败并防止同一 flag 不断重试。"
+  },
+  "friend_remark_template": {
+    "description": "好友备注模板",
+    "type": "string",
+    "default": "",
+    "hint": "可用变量：{user_id}、{group_id}、{comment}。留空则不设置备注。"
+  },
+  "remark_max_length": {
+    "description": "好友备注最大长度",
+    "type": "int",
+    "default": 20,
+    "hint": "超过长度会截断，避免 OneBot 实现或 QQ 客户端拒绝。"
+  },
+  "context_cache_enabled": {
+    "description": "启用群聊上下文缓存",
+    "type": "bool",
+    "default": true,
+    "hint": "只缓存机器人能收到的群纯文本消息；不保存图片、语音、文件内容或本地路径。"
+  },
+  "context_ttl_seconds": {
+    "description": "上下文缓存 TTL（秒）",
+    "type": "int",
+    "default": 86400,
+    "hint": "超过此时间的群聊缓存会自动清理。"
+  },
+  "max_cached_groups": {
+    "description": "最多缓存群数量",
+    "type": "int",
+    "default": 100,
+    "hint": "超过上限时移除最久未更新的群缓存。"
+  },
+  "max_messages_per_group": {
+    "description": "每群最多缓存消息数",
+    "type": "int",
+    "default": 80,
+    "hint": "每个群只保留最近的有限纯文本消息。"
+  },
+  "max_message_length": {
+    "description": "单条缓存消息最大长度",
+    "type": "int",
+    "default": 500,
+    "hint": "超过长度会截断，避免缓存和注入过长。"
+  },
+  "persist_interval_seconds": {
+    "description": "持久化间隔（秒）",
+    "type": "int",
+    "default": 30,
+    "hint": "内存缓存定期写入数据目录，避免每条消息同步写磁盘。"
+  },
+  "redact_sensitive_text": {
+    "description": "脱敏明显敏感文本",
+    "type": "bool",
+    "default": true,
+    "hint": "缓存和记录前会基础脱敏 access_token、Authorization、Cookie、API Key、密码等明显敏感片段。"
+  },
+  "context_injection_enabled": {
+    "description": "启用私聊上下文注入",
+    "type": "bool",
+    "default": true,
+    "hint": "只在来源群可靠时把有限群聊上下文作为临时 TextPart 注入本轮 LLM 请求。"
+  },
+  "inject_only_first_private_message": {
+    "description": "仅首次私聊注入",
+    "type": "bool",
+    "default": true,
+    "hint": "开启后同一用户来源关联只注入一次；关闭后在关联有效期内每轮可注入。"
+  },
+  "association_ttl_seconds": {
+    "description": "好友通过后来源关联 TTL（秒）",
+    "type": "int",
+    "default": 86400,
+    "hint": "自动同意成功后保存 user_id 到 source_group_id 的短期关联，过期自动删除。"
+  },
+  "pending_request_ttl_seconds": {
+    "description": "pending 记录 TTL（秒）",
+    "type": "int",
+    "default": 86400,
+    "hint": "等待人工处理的申请摘要保存时长；不会保存完整 flag。"
+  },
+  "max_context_messages": {
+    "description": "最多注入上下文消息数",
+    "type": "int",
+    "default": 8,
+    "hint": "优先选择该用户自己的近期群消息及其前后少量消息。"
+  },
+  "messages_before_user_message": {
+    "description": "用户消息前文条数",
+    "type": "int",
+    "default": 2,
+    "hint": "选择用户自己的群消息时，最多包含其前面的几条消息。"
+  },
+  "messages_after_user_message": {
+    "description": "用户消息后文条数",
+    "type": "int",
+    "default": 1,
+    "hint": "选择用户自己的群消息时，最多包含其后面的几条消息。"
+  },
+  "max_context_chars": {
+    "description": "注入上下文最大字符数",
+    "type": "int",
+    "default": 2000,
+    "hint": "超过字符预算会停止添加更多上下文行。"
+  },
+  "context_time_window_seconds": {
+    "description": "上下文匹配时间窗口（秒）",
+    "type": "int",
+    "default": 86400,
+    "hint": "只使用该时间窗口内的群聊缓存来辅助来源判断和上下文注入。"
+  },
+  "minimum_source_confidence": {
+    "description": "最低来源置信度",
+    "type": "float",
+    "default": 0.7,
+    "hint": "来源判断低于该值时不自动同意，也不注入上下文。"
+  }
+}
